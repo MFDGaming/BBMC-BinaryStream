@@ -81,7 +81,7 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedByte(value) {
-		let temp = Buffer.alloc(1);
+		let temp = Buffer.alloc(2);
 		temp.writeUInt8(value, 0);
 		this.write(temp);
 	}

@@ -98,6 +98,7 @@ class BinaryStream {
 		let copyLength = length == -1 ? buf.length : length;
 		this.resize(copyLength);
 		buf.copy(this.buffer, this.writerOffset, 0, copyLength);
+		this.writerOffset += copyLength;
 	}
 
 	/**

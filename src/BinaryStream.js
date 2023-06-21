@@ -68,7 +68,7 @@ class BinaryStream {
 
 	/**
 	 * Resizes the stream to the appropriate size
-	 * @returns boolean
+	 * @param {Number} sizeToAdd
 	 */
 	resize(sizeToAdd) {
 		let newSize = this.readerOffset + sizeToAdd;
@@ -78,6 +78,26 @@ class BinaryStream {
 			this.buffer.copy(buf);
 			this.buffer = buf;
 		}
+	}
+
+	/**
+	 * Reads an ammount of bytes from the stream
+	 * @param {Number} length
+	 */
+	read(length) {
+		let buf = this.buffer.slice(this.readerOffset, this.readerOffset + length);
+		this.readerOffset += length;
+		return buf;
+	}
+
+	/**
+	 * Writes a buffer to the stream
+	 * @param {Buffer} buf 
+	 */
+	write(buf, length = -1) {
+		let copyLength = length == -1 ? buf.length : length;
+		this.resize(copyLength);
+		buf.copy(this.buffer, this.writerOffset, 0, copyLength);
 	}
 
 	/**

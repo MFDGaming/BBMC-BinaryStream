@@ -44,9 +44,8 @@ class BinaryStream {
 		this.buffer = buffer;
 		this.readerOffset = readerOffset;
 		this.writerOffset = writerOffset;
-		if (length === -1) {
-			this.length = buffer.length;
-		}
+		const bufferLen = buffer.length;
+		this.length = length === -1 ? bufferLen : (length > bufferLen ? bufferLen : (length < 0 ? bufferLen : length));
 	}
 
 	/**

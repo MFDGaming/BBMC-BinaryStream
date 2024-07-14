@@ -41,11 +41,11 @@ class BinaryStream {
 	 * @param {number} offset 
 	 */
 	constructor(buffer = Buffer.allocUnsafe(0), readerOffset = 0, writerOffset = 0, length = -1) {
-		this.buffer = buffer;
-		this.readerOffset = readerOffset;
-		this.writerOffset = writerOffset;
 		const bufferLen = buffer.length;
 		this.length = length === -1 ? bufferLen : (length > bufferLen ? bufferLen : (length < 0 ? bufferLen : length));
+		this.buffer = this.length != bufferLen ? buffer.slice(0, this.length) : buffer;
+		this.readerOffset = readerOffset;
+		this.writerOffset = writerOffset;
 	}
 
 	/**

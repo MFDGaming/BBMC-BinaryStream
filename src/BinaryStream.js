@@ -94,10 +94,14 @@ class BinaryStream {
 	 * @param {Buffer} buf 
 	 */
 	write(buf, length = -1) {
-		let copyLength = length == -1 ? buf.length : length;
-		this.resize(copyLength);
-		buf.copy(this.buffer, this.writerOffset, 0, copyLength);
-		this.writerOffset += copyLength;
+		const bufferLen = this.buffer.length;
+		const newSize = this.writerOffset + sizeToAdd;
+		this.length += sizeToAdd;
+		if (newSize > bufferLen) {
+			let buf = Buffer.allocUnsafe(Math.max(bufferLen * 2, newSize));
+			this.buffer.copy(buf);
+			this.buffer = buf;
+		}
 	}
 
 	/**

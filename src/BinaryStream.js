@@ -41,12 +41,11 @@ class BinaryStream {
 	 * @param {number} offset 
 	 */
 	constructor(buffer = Buffer.allocUnsafe(0), readerOffset = 0, writerOffset = 0, length = -1) {
-		this.buffer = buffer;
+		const bufferLen = buffer.length;
+		this.length = length === -1 ? bufferLen : (length > bufferLen ? bufferLen : (length < 0 ? bufferLen : length));
+		this.buffer = this.length !== bufferLen ? buffer.slice(0, this.length) : buffer;
 		this.readerOffset = readerOffset;
 		this.writerOffset = writerOffset;
-		if (length === -1) {
-			this.length = buffer.length;
-		}
 	}
 
 	/**
@@ -71,10 +70,11 @@ class BinaryStream {
 	 * @param {Number} sizeToAdd
 	 */
 	resize(sizeToAdd) {
-		let newSize = this.readerOffset + sizeToAdd;
-		this.length += newSize;
-		if ((this.buffer.length - newSize) < 0) {
-			let buf = Buffer.allocUnsafe(this.buffer.length + (Math.ceil(newSize / 500) * 500));
+		const bufferLen = this.buffer.length;
+		const newSize = this.writerOffset + sizeToAdd;
+		this.length += sizeToAdd;
+		if (newSize > bufferLen) {
+			let buf = Buffer.allocUnsafe(Math.max(bufferLen * 2, newSize));
 			this.buffer.copy(buf);
 			this.buffer = buf;
 		}

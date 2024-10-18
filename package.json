@@ -1,6 +1,6 @@
 {
   "name": "bbmc-binarystream",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "BlueBirdMC's BinaryStream",
   "main": "src/BinaryStream.js",
   "scripts": {

@@ -14,32 +14,47 @@
 \******************************************/
 
 class BinaryStream {
+	/**
+	 * Keeps the binary data
+	 * @type {Buffer}
+	 */
 	buffer;
-	offset;
+	/**
+	 * Counts how many bytes to skip when reading the stream
+	 * @type {Number}
+	 */
+	readerOffset;
+	/**
+	 * Counts how many bytes to skip when writing to the stream
+	 * @type {Number}
+	 */
+	writerOffset;
+	/**
+	 * Counts how many bytes are in the stream
+	 * @type {Number}
+	 */
+	length;
 	
 	/**
 	 * Initializes a new stream
 	 * @param {Buffer} buffer 
 	 * @param {number} offset 
 	 */
-	constructor(buffer = Buffer.alloc(0), offset = 0) {
-		this.buffer = buffer;
-		this.offset = offset;
+	constructor(buffer = Buffer.allocUnsafe(0), readerOffset = 0, writerOffset = 0, length = -1) {
+		const bufferLen = buffer.length;
+		this.length = length < 0 || length > bufferLen ? bufferLen : length;
+		this.buffer = this.length !== bufferLen ? buffer.slice(0, this.length) : buffer;
+		this.readerOffset = readerOffset;
+		this.writerOffset = writerOffset;
 	}
 
 	/**
 	 * Resets the stream to its original state
 	 */
 	reset() {
-		this.buffer = Buffer.alloc(0);
-		this.offset = 0;
-	}
-
-	/**
-	 * Sets the offset to the beginning of the stream
-	 */
-	rewind() {
-		this.offset = 0;
+		this.buffer = Buffer.allocUnsafe(0);
+		this.readerOffset = 0;
+		this.writerOffset = 0;
 	}
 
 	/**
@@ -47,25 +62,43 @@ class BinaryStream {
 	 * @returns boolean
 	 */
 	feos() {
-		return (this.offset < this.buffer.length) ? false : true;
+		return (this.readerOffset < this.length) ? false : true;
 	}
 
 	/**
-	 * Reads n bytes from the stream
-	 * @param {number} size 
-	 * @returns Buffer
+	 * Resizes the stream to the appropriate size
+	 * @param {Number} sizeToAdd
 	 */
-	read(size) {
-		this.offset += size;
-		return this.buffer.slice(this.offset - size, this.offset);
+	resize(sizeToAdd) {
+		const bufferLen = this.buffer.length;
+		const newSize = this.writerOffset + sizeToAdd;
+		this.length += sizeToAdd;
+		if (newSize > bufferLen) {
+			let buf = Buffer.allocUnsafe(Math.max(bufferLen * 2, newSize));
+			this.buffer.copy(buf);
+			this.buffer = buf;
+		}
+	}
+
+	/**
+	 * Reads an ammount of bytes from the stream
+	 * @param {Number} length
+	 */
+	read(length) {
+		let buf = this.buffer.slice(this.readerOffset, this.readerOffset + length);
+		this.readerOffset += length;
+		return buf;
 	}
 
 	/**
 	 * Writes a buffer to the stream
-	 * @param {Buffer} buffer 
+	 * @param {Buffer} buf 
 	 */
-	write(buffer) {
-		this.buffer = Buffer.concat([this.buffer, buffer]);
+	write(buf, length = -1) {
+		let copyLength = length == -1 ? buf.length : length;
+		this.resize(copyLength);
+		buf.copy(this.buffer, this.writerOffset, 0, copyLength);
+		this.writerOffset += copyLength;
 	}
 
 	/**
@@ -73,7 +106,7 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedByte() {
-		return this.read(1).readUInt8(0);
+		return this.buffer.readUInt8(this.readerOffset++);
 	}
 
 	/**
@@ -81,9 +114,8 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedByte(value) {
-		let temp = Buffer.alloc(1);
-		temp.writeUInt8(value, 0);
-		this.write(temp);
+		this.resize(1);
+		this.buffer.writeUInt8(value, this.writerOffset++);
 	}
 
 	/**
@@ -91,7 +123,7 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readByte() {
-		return this.read(1).readInt8(0);
+		return this.buffer.readInt8(this.readerOffset++);
 	}
 
 	/**
@@ -99,9 +131,8 @@ class BinaryStream {
 	 * @param {number} value
 	 */
 	writeByte(value) {
-		let temp = Buffer.alloc(1);
-		temp.writeInt8(value, 0);
-		this.write(temp);
+		this.resize(1);
+		this.buffer.writeInt8(value, this.writerOffset++);
 	}
 
 	/**
@@ -125,7 +156,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedShortBE() {
-		return this.read(2).readUInt16BE(0);
+		let value = this.buffer.readUInt16BE(this.readerOffset);
+		this.readerOffset += 2;
+		return value;
 	}
 
 	/**
@@ -133,9 +166,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedShortBE(value) {
-		let temp = Buffer.alloc(2);
-		temp.writeUInt16BE(value, 0);
-		this.write(temp);
+		this.resize(2);
+		this.buffer.writeUInt16BE(value, this.writerOffset);
+		this.writerOffset += 2;
 	}
 
 	/**
@@ -143,7 +176,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readShortBE() {
-		return this.read(2).readInt16BE(0);
+		let value = this.buffer.readInt16BE(this.readerOffset);
+		this.readerOffset += 2;
+		return value;
 	}
 
 	/**
@@ -151,9 +186,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeShortBE(value) {
-		let temp = Buffer.alloc(2);
-		temp.writeInt16BE(value, 0);
-		this.write(temp);
+		this.resize(2);
+		this.buffer.writeInt16BE(value, this.writerOffset);
+		this.writerOffset += 2;
 	}
 
 	/**
@@ -161,7 +196,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedShortLE() {
-		return this.read(2).readUInt16LE(0);
+		let value = this.buffer.readUInt16LE(this.readerOffset);
+		this.readerOffset += 2;
+		return value;
 	}
 
 	/**
@@ -169,9 +206,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedShortLE(value) {
-		let temp = Buffer.alloc(2);
-		temp.writeUInt16LE(value, 0);
-		this.write(temp);
+		this.resize(2);
+		this.buffer.writeUInt16LE(value, this.writerOffset);
+		this.writerOffset += 2;
 	}
 
 	/**
@@ -179,7 +216,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readShortLE() {
-		return this.read(2).readInt16LE(0);
+		let value = this.buffer.readInt16LE(this.readerOffset);
+		this.readerOffset += 2;
+		return value;
 	}
 
 	/**
@@ -187,9 +226,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeShortLE(value) {
-		let temp = Buffer.alloc(2);
-		temp.writeInt16LE(value, 0);
-		this.write(temp);
+		this.resize(2);
+		this.buffer.writeInt16LE(value, this.writerOffset);
+		this.writerOffset += 2;
 	}
 
 	/**
@@ -197,7 +236,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedTriadBE() {
-		return this.read(3).readUIntBE(0, 3);
+		let value = this.buffer.readUIntBE(this.readerOffset, 3);
+		this.readerOffset += 3;
+		return value;
 	}
 
 	/**
@@ -205,9 +246,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedTriadBE(value) {
-		let temp = Buffer.alloc(3);
-		temp.writeUIntBE(value, 0, 3);
-		this.write(temp);
+		this.resize(3);
+		this.buffer.writeUIntBE(value, this.writerOffset, 3);
+		this.writerOffset += 3;
 	}
 
 	/**
@@ -215,7 +256,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readTriadBE() {
-		return this.read(3).readIntBE(0, 3);
+		let value = this.buffer.readIntBE(this.readerOffset, 3);
+		this.readerOffset += 3;
+		return value;
 	}
 
 	/**
@@ -223,9 +266,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeTriadBE(value) {
-		let temp = Buffer.alloc(3);
-		temp.writeIntBE(value, 0, 3);
-		this.write(temp);
+		this.resize(3);
+		this.buffer.writeIntBE(value, this.writerOffset, 3);
+		this.writerOffset += 3;
 	}
 
 	/**
@@ -233,7 +276,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedTriadLE() {
-		return this.read(3).readUIntLE(0, 3);
+		let value = this.buffer.readUIntLE(this.readerOffset, 3);
+		this.readerOffset += 3;
+		return value;
 	}
 
 	/**
@@ -241,9 +286,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedTriadLE(value) {
-		let temp = Buffer.alloc(3);
-		temp.writeUIntLE(value, 0, 3);
-		this.write(temp);
+		this.resize(3);
+		this.buffer.writeUIntLE(value, this.writerOffset, 3);
+		this.writerOffset += 3;
 	}
 
 	/**
@@ -251,7 +296,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readTriadLE() {
-		return this.read(3).readIntLE(0, 3);
+		let value = this.buffer.readIntLE(this.readerOffset, 3);
+		this.readerOffset += 3;
+		return value;
 	}
 
 	/**
@@ -259,9 +306,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeTriadLE(value) {
-		let temp = Buffer.alloc(3);
-		temp.writeIntLE(value, 0, 3);
-		this.write(temp);
+		this.resize(3);
+		this.buffer.writeIntLE(value, this.writerOffset, 3);
+		this.writerOffset += 3;
 	}
 
 	/**
@@ -269,7 +316,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedIntBE() {
-		return this.read(4).readUInt32BE(0);
+		let value = this.buffer.readUInt32BE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -277,9 +326,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedIntBE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeUInt32BE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeUInt32BE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -287,7 +336,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readIntBE() {
-		return this.read(4).readInt32BE(0);
+		let value = this.buffer.readInt32BE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -295,9 +346,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeIntBE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeInt32BE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeInt32BE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -305,7 +356,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readUnsignedIntLE() {
-		return this.read(4).readUInt32LE(0);
+		let value = this.buffer.readUInt32LE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -313,9 +366,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeUnsignedIntLE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeUInt32LE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeUInt32LE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -323,7 +376,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readIntLE() {
-		return this.read(4).readInt32LE(0);
+		let value = this.buffer.readInt32LE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -331,9 +386,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeIntLE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeInt32LE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeInt32LE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -341,7 +396,9 @@ class BinaryStream {
 	 * @returns BigInt
 	 */
 	readUnsignedLongBE() {
-		return this.read(8).readBigUInt64BE(0);
+		let value = this.buffer.readBigUInt64BE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -349,9 +406,9 @@ class BinaryStream {
 	 * @param {BigInt} value 
 	 */
 	writeUnsignedLongBE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeBigUInt64BE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeBigUInt64BE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -359,7 +416,9 @@ class BinaryStream {
 	 * @returns BigInt
 	 */
 	readLongBE() {
-		return this.read(8).readBigInt64BE(0);
+		let value = this.buffer.readBigInt64BE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -367,9 +426,9 @@ class BinaryStream {
 	 * @param {BigInt} value 
 	 */
 	writeLongBE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeBigInt64BE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeBigInt64BE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -377,7 +436,9 @@ class BinaryStream {
 	 * @returns BigInt
 	 */
 	readUnsignedLongLE() {
-		return this.read(8).readBigUInt64LE(0);
+		let value = this.buffer.readBigUInt64LE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -385,9 +446,9 @@ class BinaryStream {
 	 * @param {BigInt} value 
 	 */
 	writeUnsignedLongLE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeBigUInt64LE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeBigUInt64LE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -395,7 +456,9 @@ class BinaryStream {
 	 * @returns BigInt
 	 */
 	readLongLE() {
-		return this.read(8).readBigInt64LE(0);
+		let value = this.buffer.readBigInt64LE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -403,9 +466,9 @@ class BinaryStream {
 	 * @param {BigInt} value 
 	 */
 	writeLongLE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeBigInt64LE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeBigInt64LE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -413,7 +476,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readFloatBE() {
-		return this.read(4).readFloatBE(0);
+		let value = this.buffer.readFloatBE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -421,9 +486,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeFloatBE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeFloatBE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeFloatBE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -431,7 +496,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readFloatLE() {
-		return this.read(4).readFloatLE(0);
+		let value = this.buffer.readFloatLE(this.readerOffset);
+		this.readerOffset += 4;
+		return value;
 	}
 
 	/**
@@ -439,9 +506,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeFloatLE(value) {
-		let temp = Buffer.alloc(4);
-		temp.writeFloatLE(value, 0);
-		this.write(temp);
+		this.resize(4);
+		this.buffer.writeFloatLE(value, this.writerOffset);
+		this.writerOffset += 4;
 	}
 
 	/**
@@ -449,7 +516,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readDoubleBE() {
-		return this.read(8).readDoubleBE(0);
+		let value = this.buffer.readDoubleBE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -457,9 +526,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeDoubleBE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeDoubleBE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeDoubleBE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -467,7 +536,9 @@ class BinaryStream {
 	 * @returns number
 	 */
 	readDoubleLE() {
-		return this.read(8).readDoubleLE(0);
+		let value = this.buffer.readDoubleLE(this.readerOffset);
+		this.readerOffset += 8;
+		return value;
 	}
 
 	/**
@@ -475,9 +546,9 @@ class BinaryStream {
 	 * @param {number} value 
 	 */
 	writeDoubleLE(value) {
-		let temp = Buffer.alloc(8);
-		temp.writeDoubleLE(value, 0);
-		this.write(temp);
+		this.resize(8);
+		this.buffer.writeDoubleLE(value, this.writerOffset);
+		this.writerOffset += 8;
 	}
 
 	/**
@@ -601,7 +672,9 @@ class BinaryStream {
 	 * @returns Buffer
 	 */
 	readRemaining() {
-		return this.read(this.buffer.length - this.offset);
+		let buf = this.buffer.slice(this.readerOffset, this.length);
+		this.readerOffset = this.length;
+		return buf;
 	}
 }
 
